@@ -1892,9 +1892,12 @@ void build_descriptors(const NvnState& s, const Program& p) {
                 }
                 const uint64_t base = addr & ~(salign - 1);
                 uint64_t n = std::max<uint64_t>(((size + (addr - base)) + 3) & ~3ull, 16);
-                {   // (hookshot, RX_VK_SSBO_STRETCH=1: a read-only buffer bound to its pool's end, up to 64 MB. Lichii bf3f395c9: the grass's
-                    // task and mesh programs read records 12-18 MB past a base whose size word said less, read 0 and culled every blade)
-                    static const bool stretch = getenv("RX_VK_SSBO_STRETCH") != nullptr;
+                {   // (hookshot) A read-only buffer bound to its pool's end, up to 64 MB: the console's global loads have no bounds, and a
+                    // shader that read past the size word got 0 here. Lichii bf3f395c9: the grass's task and mesh programs read records
+                    // 12-18 MB past a base whose size word said less, and culled every blade. The targeting cursor (13afdae0385d7afe)
+                    // reads its arrows' 256-byte transforms past a 16 KB size word: 1-3 of its 4 arrows were drawn.
+                    // RX_VK_SSBO_STRETCH=0: the size word's range, as before
+                    static const bool stretch = !getenv("RX_VK_SSBO_STRETCH") || strcmp(getenv("RX_VK_SSBO_STRETCH"), "0") != 0;
                     if (stretch && !d.is_written && addr && d.count == 1)
                         if (const uint64_t end = gpu_pool_end(base); end > base + n)
                             n = std::max<uint64_t>(n, std::min<uint64_t>(end - base, 64ull << 20) & ~uint64_t{3});
